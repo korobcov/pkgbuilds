@@ -17,21 +17,13 @@ optdepends=('qt6-multimedia: audio recording'
             'kcoreaddons: KDE integration')
 provides=('anykeep')
 conflicts=('anykeep')
-source=('git+https://github.com/Ri0n/AnyKeep.git'
-        'git+https://github.com/itay-grudev/SingleApplication.git')
-sha256sums=('SKIP' 'SKIP')
+source=('git+https://github.com/Ri0n/AnyKeep.git')
+sha256sums=('SKIP')
 
 pkgver() {
   cd AnyKeep
   # only release tags; "nightly" and dependency tags are not versions
   git describe --long --tags --match '[0-9]*' | sed 's/\([^-]*-g\)/r\1/;s/-/./g'
-}
-
-prepare() {
-  cd AnyKeep
-  git submodule init
-  git config submodule.3rdparty/singleapplication.url "$srcdir/SingleApplication"
-  git -c protocol.file.allow=always submodule update
 }
 
 build() {
