@@ -1,0 +1,47 @@
+# Maintainer: alex korobtsov <korobcoff@gmail.com>
+pkgname=anykeep-git
+pkgver=3.99.0.r94.gc8b852e
+pkgrel=1
+pkgdesc="Note-taking application written with Qt (Tomboy clone), git version"
+arch=('i686' 'x86_64')
+url="https://anykeep.net"
+license=('GPL3')
+depends=('qt6-base' 'qt6-declarative' 'qt6-svg' 'qca-qt6' 'qtkeychain-qt6'
+         'hunspell' 'libx11')
+makedepends=('git' 'cmake' 'python' 'qt6-tools')
+optdepends=('qt6-multimedia: audio recording'
+            'kglobalaccel: KDE global hotkeys'
+            'knotifications: KDE notifications'
+            'kwindowsystem: KDE integration'
+            'kconfig: KDE integration'
+            'kcoreaddons: KDE integration')
+provides=('anykeep')
+conflicts=('anykeep')
+source=('git+https://github.com/Ri0n/AnyKeep.git'
+        'git+https://github.com/itay-grudev/SingleApplication.git')
+sha256sums=('SKIP' 'SKIP')
+
+pkgver() {
+  cd AnyKeep
+  # only release tags; "nightly" and dependency tags are not versions
+  git describe --long --tags --match '[0-9]*' | sed 's/\([^-]*-g\)/r\1/;s/-/./g'
+}
+
+prepare() {
+  cd AnyKeep
+  git submodule init
+  git config submodule.3rdparty/singleapplication.url "$srcdir/SingleApplication"
+  git -c protocol.file.allow=always submodule update
+}
+
+build() {
+  cmake -S AnyKeep -B build \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DBUILD_TESTING=OFF
+  cmake --build build
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+}
