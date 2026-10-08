@@ -1,60 +1,49 @@
 # Maintainer: alex korobtsov <korobcoff@gmail.com>
-pkgname=qomp-qt5-git
-pkgver=0.7.5
+pkgname=qomp-git
+pkgver=1.5.r18.gdc84b90
 pkgrel=1
 pkgdesc="Quick(Qt) Online Music Player"
 arch=('i686' 'x86_64')
-url="http://qomp.sourceforge.net/"
+url="https://github.com/qomp/qomp"
 license=('GPL2')
-depends=( 'taglib' 'qt5-base' 'qt5-tools' 'qt5-multimedia'
-'qt5-xmlpatterns' 'gstreamer0.10-bad-plugins'
-'gstreamer0.10-base-plugins' 'gstreamer0.10-ffmpeg'
-'gstreamer0.10-good-plugins' 'gstreamer0.10-ugly-plugins' )
-makedepends=('git')
-conflicts=(qomp)
-source=(git+https://github.com/qomp/qomp)
-md5sums=('SKIP') 
+depends=('qt6-base' 'qt6-multimedia' 'qt6-5compat' 'taglib' 'libcue' 'libx11')
+optdepends=('qt6-multimedia-ffmpeg: audio/video backend for playback'
+            'qt6-multimedia-gstreamer: alternative playback backend')
+makedepends=('git' 'cmake' 'qt6-tools')
+provides=('qomp')
+conflicts=('qomp' 'qomp-qt5-git')
+source=('git+https://github.com/qomp/qomp.git'
+        'git+https://github.com/qomp/translations.git'
+        'git+https://github.com/qomp/themes.git'
+        'git+https://github.com/wadealer/SingleApplication.git')
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP')
+
+_plugins="filesystemplugin;urlplugin;poiskmplugin;myzukaruplugin;notificationsplugin;yandexmusicplugin;lastfmplugin;tunetofileplugin;mprisplugin"
 
 pkgver() {
   cd qomp
- git describe --tags | cut -d - -f 1-2 --output-delimiter=.
+  git describe --long --tags --abbrev=7 | sed 's/\([^-]*-g\)/r\1/;s/-/./g'
 }
 
-_gitroot=https://github.com/qomp/
-_gitname=qomp
-_plugins="notificationsplugin;filesystemplugin;urlplugin;prostopleerplugin;myzukaruplugin;yandexmusicplugin;lastfmplugin;tunetofileplugin;mprisplugin"
+prepare() {
+  cd qomp
+  # ga (google analytics) and android_openssl are not needed on desktop
+  git submodule init translations themes src/singleapplication
+  git config submodule.translations.url "$srcdir/translations"
+  git config submodule.themes.url "$srcdir/themes"
+  git config submodule.src/singleapplication.url "$srcdir/SingleApplication"
+  git -c protocol.file.allow=always submodule update translations themes src/singleapplication
+}
+
 build() {
-  cd "$srcdir"
-  msg "Connecting to GIT server...."
-
-  if [[ -d "$_gitname" ]]; then
-    cd "$_gitname" && git pull origin
-    msg "The local files are updated."
-  else
-    git clone "$_gitroot" "$_gitname"
-  fi
-
-  msg "GIT checkout done or server timeout"
-  msg "Starting build..."
-
-  rm -rf "$srcdir/$_gitname-build"
-  git clone "$srcdir/$_gitname" "$srcdir/$_gitname-build"
-  cd "$srcdir/$_gitname-build/"
-  git submodule init
-  git submodule update
-  
-  # BUILD HERE
-  
-cmake -DCMAKE_INSTALL_PREFIX=/usr/ \
-	-DUSE_QT5=ON \
-	-DCMAKE_BUILD_TYPE=Release \
-	-DBUILD_PLUGINS=${_plugins}
-
-make
+  cmake -S qomp -B build \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DUSE_QT6=ON \
+    -DBUILD_PLUGINS="${_plugins}"
+  cmake --build build
 }
 
 package() {
-  cd "$srcdir/$_gitname-build/"
-  make DESTDIR="$pkgdir/"  install
-
+  DESTDIR="$pkgdir" cmake --install build
 }
