@@ -6,8 +6,6 @@ PKGBUILD-ы для Arch Linux / CachyOS, которые я собираю для
 |-------|----------|
 | [1c-enterprise-thin-client](1c-enterprise-thin-client) | 1C:Enterprise 8.3 thin client (from official .deb package) — [подробности](1c-enterprise-thin-client/README.md) |
 | [network-manager-amneziawg-git](network-manager-amneziawg-git) | NetworkManager VPN plugin for AmneziaWG |
-| [qomp](qomp) | Quick(Qt) Online Music Player |
-| [qscreenshot](qscreenshot) | Simple creation and editing of screenshots |
 
 ## Сборка
 
