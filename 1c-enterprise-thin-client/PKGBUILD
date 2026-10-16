@@ -1,0 +1,82 @@
+# Maintainer: nsof <korobcoff@gmail.com>
+#
+# Тонкий клиент 1С:Предприятие 8.3 из официального .deb.
+# package() повторяет postinst из deb-пакета (адаптировано под Arch).
+
+pkgname=1c-enterprise-thin-client
+pkgver=8.3.27.1859
+_debver=8.3.27-1859
+pkgrel=3
+pkgdesc="1C:Enterprise 8.3 thin client (from official .deb package)"
+arch=('x86_64')
+url="https://1c.ru/"
+license=('LicenseRef-1C-EULA')
+# по v8-install-deps.sh (common + ui) для Debian/Ubuntu
+depends=('gcc-libs' 'freetype2' 'cairo' 'harfbuzz' 'fribidi' 'libgsf' 'lcms2'
+         'krb5' 'fontconfig' 'glu' 'webkit2gtk-4.1' 'polkit' 'zenity')
+optdepends=('ttf-ms-fonts: шрифты Microsoft (msttcorefonts), рекомендует 1С'
+            'evince: просмотр PDF и печатных форм'
+            'xorg-xmessage: сообщения об ошибках запуска (x11-utils)')
+options=('!strip' '!debug')
+backup=('opt/1cv8/conf/conf.cfg')
+# Русский и английский интерфейс — в основном пакете (-nls содержит прочие языки)
+source=("1c-enterprise-${pkgver}-thin-client_${_debver}_amd64.deb")
+noextract=("${source[@]}")
+sha256sums=('SKIP')
+
+package() {
+  cd "$srcdir"
+  bsdtar -xOf "${source[0]}" 'data.tar.*' | bsdtar -xpf - -C "$pkgdir"
+
+  local _v="$pkgdir/opt/1cv8/x86_64/$pkgver"
+  local _common="$pkgdir/opt/1cv8/common"
+  local _conf="$pkgdir/opt/1cv8/conf"
+
+  # postinst: переключение на сборки под webkit2gtk-4.1 (*.wk41)
+  ln -frs "$_v/webkit2_extu-3.0.so.wk41" "$_v/webkit2ext/webkit2_extu-3.0.so"
+  ln -frs "$_v/libwx_gtk3u-3.0.so.0.1.0.wk41" "$_v/libwx_gtk3u-3.0.so.0"
+
+  # postinst: conf.cfg с языком интерфейса
+  install -dm755 "$_conf"
+  echo "SystemLanguage=RU" > "$_conf/conf.cfg"
+
+  # postinst: 1cestart и его библиотеки в /opt/1cv8/common
+  install -dm755 "$_common"
+  local _f
+  for _f in "$_v"/{nuke83.so,uiproxywx.so,core*.so,libwx_gtk3u*-3.0.so.0*,libicu*,libstdc++.so.6*,libatomic.so.1*,libunwind.so.8,libtcmalloc.so.4*}; do
+    if [ -e "$_f" ] || [ -L "$_f" ]; then cp -a "$_f" "$_common"/; fi
+  done
+  mv "$_v/1cestart" "$_common/"
+  install -dm755 "$pkgdir/usr/share/applications"
+  mv "$_v"/1cestart*.desktop "$pkgdir/usr/share/applications/1cestart.desktop"
+
+  # postinst (современные дистрибутивы): системная libstdc++ вместо бандленной
+  rm -f "$_v"/libstdc++.so.6* "$_common"/libstdc++.so.6*
+  # Arch: бандленная libgcc_s слишком старая для системных библиотек (GCC_12)
+  rm -f "$_v"/libgcc_s.so* "$_common"/libgcc_s.so*
+
+  # Arch: wbase.so экспортирует собственный выровненный operator new, который
+  # возвращает NULL на запросы LLVM (Mesa) -> "LLVM ERROR: out of memory".
+  # Запускаем через обёртки с системной libstdc++ в LD_PRELOAD.
+  install -dm755 "$pkgdir/usr/bin"
+  _wrap() {
+    printf '%s\n' '#!/bin/sh' \
+      'export LD_PRELOAD="/usr/lib/libstdc++.so.6${LD_PRELOAD:+:$LD_PRELOAD}"' \
+      "exec $2 \"\$@\"" > "$pkgdir/usr/bin/$1"
+    chmod 755 "$pkgdir/usr/bin/$1"
+  }
+  _wrap 1cv8c    "/opt/1cv8/x86_64/$pkgver/1cv8c"
+  _wrap 1cv8s    "/opt/1cv8/x86_64/$pkgver/1cv8s"
+  _wrap 1cestart "/opt/1cv8/common/1cestart"
+
+  # ярлыки запускают обёртки
+  sed -i -E 's#^Exec=/opt/1cv8/[^ ]*/(1cv8c|1cv8s|1cestart)#Exec=/usr/bin/\1#' \
+    "$pkgdir"/usr/share/applications/*.desktop
+
+  # в меню оставляем только «1С:Предприятие» (1cestart): он показывает список
+  # баз и сам запускает нужный клиент; ярлыки 1cv8c/1cv8s скрываем
+  for _f in "$pkgdir"/usr/share/applications/*.desktop; do
+    if [ "${_f##*/}" = 1cestart.desktop ]; then continue; fi
+    sed -i '0,/^\[Desktop Entry\]/s//[Desktop Entry]\nNoDisplay=true/' "$_f"
+  done
+}
