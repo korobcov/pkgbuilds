@@ -1,0 +1,32 @@
+# Maintainer: nsof <korobcoff@gmail.com>
+pkgname=network-manager-amneziawg-git
+_pkgname=network-manager-amneziawg
+pkgver=0.9.11
+pkgrel=1
+pkgdesc="NetworkManager VPN plugin for AmneziaWG"
+arch=('x86_64')
+url="https://github.com/vovochka404/network-manager-amneziawg"
+license=('GPL-2.0-or-later')
+depends=('networkmanager' 'glib2' 'gtk3' 'libnma' 'amneziawg-tools')
+optdepends=('amneziawg-dkms: kernel module (or amneziawg-go / amneziawg-linux)')
+makedepends=('cmake' 'pkgconf' 'gettext' 'git')
+provides=("$_pkgname")
+conflicts=("$_pkgname")
+source=("$_pkgname::git+$url.git")
+sha256sums=('SKIP')
+
+pkgver() {
+    cd "$_pkgname"
+    git describe --tags 2>/dev/null | sed 's/^v//;s/-/./g' || echo "0.9.11"
+}
+
+build() {
+    cd "$_pkgname"
+    cmake -B build -S . -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release
+    cmake --build build
+}
+
+package() {
+    cd "$_pkgname"
+    DESTDIR="$pkgdir" cmake --install build
+}
